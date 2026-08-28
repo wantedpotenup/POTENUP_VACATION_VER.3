@@ -98,7 +98,8 @@
     flex:1;
     border:none;
     border-bottom:1px solid var(--line-strong);
-    padding:5px 2px;
+    padding:6px 2px 9px;
+    line-height:1.4;
     font-size:14px;
     font-family:inherit;
     background:transparent;
@@ -129,8 +130,9 @@
     background:transparent;
     font-family:inherit;
     font-size:14px;
+    line-height:1.4;
     color:var(--ink);
-    padding:2px 4px;
+    padding:2px 4px 5px;
     width:150px;
     text-align:center;
   }
@@ -140,8 +142,9 @@
     background:transparent;
     font-family:inherit;
     font-size:14px;
+    line-height:1.4;
     color:var(--ink);
-    padding:2px 4px;
+    padding:2px 4px 5px;
     width:44px;
     text-align:center;
   }
@@ -228,6 +231,7 @@
             <li>AI Agent 트랙 (3층) : 프로그래밍 기반 얼라인 프로젝트</li>
             <li>게임 개발 트랙 (4층) : (포텐업) 알고리즘을 활용한 네트워크 RPG 게임제작</li>
             <li>백엔드 개발 트랙 (6층) : 생성형 AI기반 FE/BE 협업과정</li>
+            <li>[을지대] 생성형 AI 활용 서비스 개발 : 프로그래밍 기반 얼라인 프로젝트</li>
           </ul>
         </li>
         <li>정해진 양식에 맞게 제출해주세요.</li>
@@ -411,7 +415,40 @@ submitBtn.addEventListener('click', async ()=>{
 
   try{
     // 서약서 카드(#formCard)만 캡처 (주의사항 박스는 제외)
-    const canvasImg = await html2canvas(document.getElementById('formCard'), {scale:2, backgroundColor:'#ffffff'});
+    // html2canvas가 <input>/<select> 글자를 그릴 때 아래쪽이 잘려 보이는
+    // 알려진 버그가 있어서, 캡처 순간에만 입력창을 일반 텍스트로 바꿔서 찍어요.
+    const canvasImg = await html2canvas(document.getElementById('formCard'), {
+      scale:2,
+      backgroundColor:'#ffffff',
+      onclone: (clonedDoc)=>{
+        const fieldEls = clonedDoc.querySelectorAll('#formCard .underline-input, #formCard .inline-date, #formCard .inline-days');
+        fieldEls.forEach(el=>{
+          let text = '';
+          if(el.tagName === 'SELECT'){
+            text = el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '';
+          }else if(el.type === 'date'){
+            text = el.value || '';
+          }else{
+            text = el.value || '';
+          }
+          const span = clonedDoc.createElement('span');
+          span.textContent = text;
+          const isInline = el.classList.contains('inline-date') || el.classList.contains('inline-days');
+          span.style.display = 'inline-block';
+          span.style.boxSizing = 'border-box';
+          span.style.borderBottom = '1px solid #333333';
+          span.style.fontFamily = 'inherit';
+          span.style.fontSize = '14px';
+          span.style.lineHeight = '1.5';
+          span.style.color = '#1f2a24';
+          span.style.textAlign = isInline ? 'center' : 'left';
+          span.style.padding = isInline ? '2px 4px 6px' : '6px 2px 10px';
+          span.style.width = isInline ? (el.classList.contains('inline-days') ? '44px' : '150px') : '100%';
+          if(!isInline) span.style.flex = '1';
+          el.parentNode.replaceChild(span, el);
+        });
+      }
+    });
     const imgData = canvasImg.toDataURL('image/png');
 
     const { jsPDF } = window.jspdf;
@@ -439,6 +476,11 @@ submitBtn.addEventListener('click', async ()=>{
     });
     if(!res.ok) throw new Error('SERVER_ERROR');
 
+    const result = await res.json();
+    if(!result.ok){
+      throw new Error(result.error || 'SERVER_ERROR');
+    }
+
     statusMsg.textContent = '휴가 신청서가 제출되었습니다.';
     statusMsg.className = 'status-msg success';
     submitBtn.textContent = 'PDF 제출하기';
@@ -447,8 +489,10 @@ submitBtn.addEventListener('click', async ()=>{
     console.error(err);
     if(err.message === 'GAS_URL_NOT_SET'){
       statusMsg.textContent = '아직 제출 서버(Google Apps Script) 주소가 설정되지 않았어요. 관리자에게 문의해주세요.';
-    }else{
+    }else if(err.message === 'SERVER_ERROR'){
       statusMsg.textContent = '제출에 실패했어요. 인터넷 연결을 확인하고 다시 시도해주세요.';
+    }else{
+      statusMsg.textContent = '제출 중 오류가 발생했어요: ' + err.message;
     }
     statusMsg.className = 'status-msg error';
     submitBtn.textContent = 'PDF 제출하기';
