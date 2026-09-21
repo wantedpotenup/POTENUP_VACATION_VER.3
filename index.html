@@ -424,7 +424,7 @@ submitBtn.addEventListener('click', async ()=>{
     // html2canvas가 <input>/<select> 글자를 그릴 때 아래쪽이 잘려 보이는
     // 알려진 버그가 있어서, 캡처 순간에만 입력창을 일반 텍스트로 바꿔서 찍어요.
     const canvasImg = await html2canvas(document.getElementById('formCard'), {
-      scale:2,
+      scale:1.5,
       backgroundColor:'#ffffff',
       onclone: (clonedDoc)=>{
         const fieldEls = clonedDoc.querySelectorAll('#formCard .underline-input, #formCard .inline-date, #formCard .inline-days');
@@ -455,11 +455,11 @@ submitBtn.addEventListener('click', async ()=>{
         });
       }
     });
-    const imgData = canvasImg.toDataURL('image/png');
+    const imgData = canvasImg.toDataURL('image/jpeg', 0.88);
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({unit:'px', format:[canvasImg.width, canvasImg.height]});
-    pdf.addImage(imgData, 'PNG', 0, 0, canvasImg.width, canvasImg.height);
+    pdf.addImage(imgData, 'JPEG', 0, 0, canvasImg.width, canvasImg.height);
     const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
     submitBtn.textContent = '제출 중...';
