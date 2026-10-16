@@ -300,6 +300,20 @@
 <script>
 const $ = id => document.getElementById(id);
 
+// ===== WANTED GROUND(포털) 안에 들어가 있으면 내용 높이를 알려서 이중 스크롤을 없애요 =====
+(function(){
+  if(window.self === window.top || !window.ResizeObserver) return;
+  let last = 0;
+  const send = ()=>{
+    const h = Math.ceil(document.querySelector('.wrap').getBoundingClientRect().height);
+    if(Math.abs(h - last) < 2) return;
+    last = h;
+    window.parent.postMessage({ type:'wg-height', height:h }, '*');
+  };
+  new ResizeObserver(send).observe(document.querySelector('.wrap'));
+  window.addEventListener('load', send);
+})();
+
 // ===== 전화번호 자동 하이픈(010-0000-0000) 포맷 (기존과 동일) =====
 function formatPhoneNumber(value){
   const digits = value.replace(/\D/g,'').slice(0,11);
