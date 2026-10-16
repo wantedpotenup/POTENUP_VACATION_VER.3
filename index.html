@@ -88,6 +88,10 @@
   .submit:hover:not(:disabled){background:var(--primary-hover);}
   .submit:active:not(:disabled){background:var(--primary-press);}
   .submit:disabled{background:var(--disabled);color:var(--label-4);cursor:default;}
+  .done{display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:12px;background:rgba(0,191,64,0.08);box-shadow:inset 0 0 0 1px rgba(0,191,64,0.28);}
+  .done[hidden]{display:none;}
+  .done b{display:flex;align-items:center;gap:6px;font-size:15px;line-height:22px;color:var(--success-ink);}
+  .done span{font-size:14px;line-height:22px;color:var(--label);font-weight:600;}
   .status{margin:0;text-align:center;font-size:13px;line-height:18px;font-weight:500;color:var(--label-3);}
   .status:empty{display:none;}
   .status.error{color:var(--danger-ink);}
@@ -212,19 +216,26 @@
     <aside class="side-col">
       <div class="check-card" id="checkCard">
         <h2>제출 전 확인해주세요</h2>
-        <label class="check"><input type="checkbox" class="pre-check"> 강사님 &amp; 운영진에게 휴가 사용 일정을 사전 공유했어요.</label>
-        <label class="check"><input type="checkbox" class="pre-check"> 2층 OFFICE에 방문해서 추가 서류(출석입력요청대장)를 작성했어요.</label>
+        <label class="check"><input type="checkbox" class="pre-check" id="preCheck"> 강사님 &amp; 운영진에게 휴가 사용 일정을 사전 공유했어요.</label>
       </div>
 
       <div class="summary">
         <span class="cap">신청서 미리보기</span>
         <p>위 본인은 주식회사 원티드랩에서 K-Digital Training 훈련을 받던 중 <strong id="pvPeriod">____ ~ ____ (1일)</strong> 휴가를 신청합니다.</p>
         <div class="who"><span>신청자</span><b id="pvName">-</b></div>
-        <button type="button" class="submit" id="submitBtn">
+        <button type="button" class="submit" id="submitBtn" disabled>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>
           <span>PDF 제출하기</span>
         </button>
+        <p class="help" id="checkHint" style="margin:0;text-align:center;">위 확인 항목에 체크하면 제출할 수 있어요</p>
         <p class="status" id="statusMsg" role="status" aria-live="polite"></p>
+        <div class="done" id="doneBox" role="status" hidden>
+          <b>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
+            휴가 신청서가 제출되었습니다.
+          </b>
+          <span>2층 OFFICE에 방문하셔서, 추가 서류(출석입력요청대장)을 작성해주세요.</span>
+        </div>
       </div>
     </aside>
   </div>
@@ -383,7 +394,15 @@ const statusMsg = $('statusMsg');
 function setStatus(msg, kind){ statusMsg.textContent = msg; statusMsg.className = 'status' + (kind ? ' '+kind : ''); }
 function markError(el, on){ el.classList.toggle('error', on); }
 document.querySelectorAll('.input').forEach(el=> el.addEventListener('input', ()=>markError(el,false)));
-document.querySelectorAll('.pre-check').forEach(el=> el.addEventListener('change', ()=>$('checkCard').classList.remove('error')));
+// 사전 공유 체크를 해야만 제출 버튼이 켜져요 (체크 전에는 회색 비활성)
+let sending = false;
+function syncSubmit(){
+  const ok = $('preCheck').checked;
+  submitBtn.disabled = sending || !ok;
+  $('checkHint').hidden = ok;
+}
+$('preCheck').addEventListener('change', syncSubmit);
+syncSubmit();
 
 submitBtn.addEventListener('click', async ()=>{
   setStatus('');
@@ -406,10 +425,10 @@ submitBtn.addEventListener('click', async ()=>{
   if(empty.length){ setStatus('모든 항목을 입력해주세요.', 'error'); $(empty[0][0]).focus(); return; }
   if(d.endDate < d.startDate){ markError($('uEnd'), true); setStatus('종료일은 시작일과 같거나 늦어야 해요.', 'error'); return; }
   if(!hasSignature){ $('uPadBox').classList.add('error'); setStatus('서명을 입력해주세요.', 'error'); return; }
-  if([...document.querySelectorAll('.pre-check')].some(c=>!c.checked)){
-    $('checkCard').classList.add('error'); setStatus('제출 전 확인 항목에 체크해주세요.', 'error'); return;
-  }
+  if(!$('preCheck').checked) return;
 
+  $('doneBox').hidden = true;
+  sending = true;
   submitBtn.disabled = true;
   submitLabel.textContent = 'PDF 만드는 중...';
 
@@ -476,14 +495,17 @@ submitBtn.addEventListener('click', async ()=>{
     const result = await res.json();
     if(!result.ok) throw new Error(result.error || 'SERVER_ERROR');
 
-    setStatus('휴가 신청서가 제출되었습니다.', 'success');
+    setStatus('');
+    $('doneBox').hidden = false;
+    $('doneBox').scrollIntoView({block:'nearest', behavior:'smooth'});
   }catch(err){
     console.error(err);
     if(err.message === 'SERVER_ERROR') setStatus('제출에 실패했어요. 인터넷 연결을 확인하고 다시 시도해주세요.', 'error');
     else setStatus('제출 중 오류가 발생했어요: ' + err.message, 'error');
   }finally{
     submitLabel.textContent = 'PDF 제출하기';
-    submitBtn.disabled = false;
+    sending = false;
+    syncSubmit();
   }
 });
 </script>
